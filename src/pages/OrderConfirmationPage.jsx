@@ -1,0 +1,235 @@
+// src/pages/OrderConfirmationPage.jsx
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { db } from '../firebase/firebase'; // Impor db
+import { doc, getDoc } from 'firebase/firestore'; // Impor doc dan getDoc
+
+function OrderConfirmationPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [orderDetails, setOrderDetails] = useState(null);
+  const [orderId, setOrderId] = useState(null);
+  const [storeSettings, setStoreSettings] = useState({ // State untuk pengaturan toko
+    adminWhatsApp: '',
+    bankAccountNumber: '',
+    bankAccountName: '',
+    bankName: ''
+  });
+  const [loadingSettings, setLoadingSettings] = useState(true); // State loading untuk pengaturan toko
+
+  useEffect(() => {
+    // Ambil detail pesanan dari state navigasi
+    if (location.state && location.state.orderDetails && location.state.orderId) {
+      setOrderDetails(location.state.orderDetails);
+      setOrderId(location.state.orderId);
+    } else {
+      // Jika tidak ada data pesanan, arahkan kembali ke halaman produk
+      alert("Detail pesanan tidak ditemukan. Silakan lakukan checkout ulang.");
+      navigate('/products');
+      return; // Hentikan eksekusi lebih lanjut
+    }
+
+    // Ambil pengaturan toko dari Firestore
+    const fetchStoreSettings = async () => {
+      try {
+        const settingsDocRef = doc(db, 'storeSettings', 'general');
+        const docSnap = await getDoc(settingsDocRef);
+        if (docSnap.exists()) {
+          setStoreSettings(docSnap.data());
+        }
+      } catch (error) {
+        console.error("Error fetching store settings:", error);
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+
+    fetchStoreSettings();
+  }, [location.state, navigate]);
+
+  // Fungsi untuk menyalin teks ke clipboard
+  const copyToClipboard = (text) => {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy'); // Metode yang kompatibel di iframe Canvas
+    document.body.removeChild(el);
+    alert('Nomor rekening berhasil disalin!');
+  };
+
+  if (!orderDetails || loadingSettings) {
+    // Ini akan ditampilkan saat data belum dimuat atau sedang mengarahkan ulang atau pengaturan belum dimuat
+    // Menggunakan main-accent
+    return <div className="text-center p-8 text-xl font-semibold text-[#99cc66] font-inter">Memuat detail konfirmasi pesanan...</div>;
+  }
+
+  // Gunakan data pengaturan toko yang dinamis
+  const adminBankDetails = {
+    accountNumber: storeSettings.bankAccountNumber || 'N/A',
+    accountName: storeSettings.bankAccountName || 'N/A',
+    bankName: storeSettings.bankName || 'N/A'
+  };
+  const adminWhatsAppNumber = storeSettings.adminWhatsApp || ''; // Ambil dari pengaturan
+
+  // Persiapkan link WhatsApp
+  let waLink = '';
+  let whatsappButtonText = '';
+
+  if (orderDetails.paymentMethod === 'bankTransfer' || orderDetails.paymentMethod === 'eWallet') {
+    const paymentType = orderDetails.paymentMethod === 'bankTransfer' ? 'Transfer Bank' : 'E-Wallet';
+    const prefilledWAMessage = encodeURIComponent(
+      `Halo admin, saya ${orderDetails.customerInfo?.name || 'Pelanggan'} ingin konfirmasi pembayaran untuk pesanan #${orderId} dengan metode ${paymentType}. Total pembayaran Rp ${orderDetails.totalAmount.toLocaleString('id-ID')}.`
+    );
+    waLink = `https://wa.me/${adminWhatsAppNumber}?text=${prefilledWAMessage}`;
+    whatsappButtonText = 'Kirim Bukti Transfer';
+  } else if (orderDetails.paymentMethod === 'cod') {
+    const prefilledWAMessage = encodeURIComponent(
+      `Halo admin, saya ${orderDetails.customerInfo?.name || 'Pelanggan'} telah membuat pesanan COD #${orderId}. Mohon diproses.`
+    );
+    waLink = `https://wa.me/${adminWhatsAppNumber}?text=${prefilledWAMessage}`;
+    whatsappButtonText = 'Chat untuk Info COD';
+  }
+
+  return (
+    // Menggunakan background #d9ecb1 dan font-inter
+    <div className="container mx-auto p-8 bg-[#d9ecb1] rounded-lg shadow-lg max-w-2xl text-center font-inter">
+      {/* Menggunakan dark-neutral */}
+      <h1 className="text-3xl font-bold text-[#254222] mb-4">Pesanan Berhasil Dibuat!</h1>
+      {/* Menggunakan dark-neutral */}
+      <p className="text-lg text-[#254222] mb-6">Terima kasih telah berbelanja di UMKM Storefront.</p>
+
+      {/* Detail Pesanan Anda Section */}
+      {/* Menggunakan background #FFFDF5 dan border secondary-neutral */}
+      <div className="bg-[#FFFDF5] border border-[#cae4c5] p-6 rounded-lg mb-8 text-left">
+        {/* Menggunakan dark-neutral */}
+        <h2 className="text-xl font-semibold text-[#254222] mb-4">Detail Pesanan Anda:</h2>
+        {/* Menggunakan dark-neutral untuk teks */}
+        <p className="text-[#254222]"><strong>ID Pesanan:</strong> <span className="font-mono bg-gray-200 px-2 py-1 rounded-md text-sm text-[#254222]">{orderId}</span></p>
+        <p className="text-[#254222]"><strong>Nama Pelanggan:</strong> {orderDetails.customerInfo?.name}</p>
+        <p className="text-[#254222]"><strong>Metode Pembayaran:</strong> 
+          {orderDetails.paymentMethod === 'bankTransfer' ? 'Transfer Bank' :
+           orderDetails.paymentMethod === 'eWallet' ? 'E-Wallet' :
+           orderDetails.paymentMethod === 'cod' ? 'Cash On Delivery (COD)' : 'N/A'}
+        </p>
+        <p className="text-[#254222] mt-2"><strong>Alamat Pengiriman:</strong> {orderDetails.customerInfo?.address}</p>
+
+        {/* Ringkasan Biaya */}
+        {/* Menggunakan dark-neutral */}
+        <h3 className="text-lg font-semibold text-[#254222] mt-4 mb-2">Ringkasan Biaya:</h3>
+        <div className="space-y-1">
+          {/* Menggunakan dark-neutral */}
+          <div className="flex justify-between text-[#254222]">
+            <span>Subtotal:</span>
+            <span>Rp {orderDetails.subtotal ? orderDetails.subtotal.toLocaleString('id-ID') : 'N/A'}</span>
+          </div>
+          {/* Menggunakan dark-neutral */}
+          <div className="flex justify-between text-[#254222]">
+            <span>Biaya Pengiriman:</span>
+            <span>Rp {orderDetails.deliveryFee ? orderDetails.deliveryFee.toLocaleString('id-ID') : 'N/A'}</span>
+          </div>
+          {/* Total Pembayaran, menggunakan main-accent (#99cc66) untuk menonjol, dengan border dark-neutral */}
+          <div className="flex justify-between text-lg font-bold text-[#99cc66] border-t pt-2 mt-2 border-[#254222]">
+            <span>Total Pembayaran:</span>
+            <span>Rp {orderDetails.totalAmount ? orderDetails.totalAmount.toLocaleString('id-ID') : 'N/A'}</span>
+          </div>
+        </div>
+
+        {/* Item Pesanan */}
+        {/* Menggunakan dark-neutral */}
+        <h3 className="text-lg font-semibold text-[#254222] mt-4 mb-2">Item Pesanan:</h3>
+        <ul className="list-disc pl-5 mb-4 max-h-48 overflow-y-auto">
+          {orderDetails.items && orderDetails.items.length > 0 ? (
+            orderDetails.items.map((item, index) => (
+              // Menggunakan dark-neutral
+              <li key={index} className="text-[#254222] text-sm">
+                {item.name} (x{item.quantity}) - Rp {(item.price * item.quantity).toLocaleString('id-ID')}
+              </li>
+            ))
+          ) : (
+            // Menggunakan dark-neutral
+            <li className="text-[#254222] text-sm">Tidak ada item dalam pesanan ini.</li>
+          )}
+        </ul>
+
+        {orderDetails.paymentMethod === 'bankTransfer' && (
+          // Background #FFFDF5, border main-accent
+          <div className="mt-6 bg-[#FFFDF5] border border-[#99cc66] p-4 rounded-lg">
+            {/* Menggunakan dark-neutral */}
+            <h3 className="text-lg font-semibold text-[#254222] mb-2">Instruksi Pembayaran Transfer Bank:</h3>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222]">Mohon transfer total sebesar <span className="font-bold">Rp {orderDetails.totalAmount.toLocaleString('id-ID')}</span> ke rekening berikut:</p>
+            {/* Menggunakan dark-neutral untuk nomor rekening */}
+            <p className="text-[#254222] text-xl font-bold break-all mt-2">
+              {adminBankDetails.accountNumber}
+              <button
+                onClick={() => copyToClipboard(adminBankDetails.accountNumber)}
+                // Tombol outline biru (#6699cc)
+                className="ml-2 py-1 px-2 rounded-md text-xs font-semibold transition-colors duration-300 transform active:scale-95
+                           bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5]"
+              >
+                Salin
+              </button>
+            </p>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222]">A.N. {adminBankDetails.accountName} ({adminBankDetails.bankName})</p>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222] mt-4">Setelah transfer, mohon konfirmasi pembayaran Anda melalui WhatsApp dengan menekan tombol di bawah:</p>
+          </div>
+        )}
+
+        {orderDetails.paymentMethod === 'eWallet' && (
+          // Background #FFFDF5, border main-accent
+          <div className="mt-6 bg-[#FFFDF5] border border-[#99cc66] p-4 rounded-lg">
+            {/* Menggunakan dark-neutral */}
+            <h3 className="text-lg font-semibold text-[#254222] mb-2">Instruksi Pembayaran E-Wallet:</h3>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222]">Mohon transfer total sebesar <span className="font-bold">Rp {orderDetails.totalAmount.toLocaleString('id-ID')}</span> ke E-Wallet [Nama E-Wallet Anda] dengan nomor [Nomor E-Wallet Anda].</p>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222] mt-4">Setelah transfer, mohon konfirmasi pembayaran Anda melalui WhatsApp dengan menekan tombol di bawah:</p>
+          </div>
+        )}
+
+        {orderDetails.paymentMethod === 'cod' && (
+          // Background #FFFDF5, border secondary-neutral
+          <div className="mt-6 bg-[#FFFDF5] border border-[#cae4c5] p-4 rounded-lg">
+            {/* Menggunakan dark-neutral */}
+            <h3 className="text-lg font-semibold text-[#254222] mb-2">Instruksi Pembayaran Cash On Delivery (COD):</h3>
+            {/* Menggunakan dark-neutral */}
+            <p className="text-[#254222]">Pesanan Anda akan segera diproses. Mohon siapkan pembayaran sebesar <span className="font-bold">Rp {orderDetails.totalAmount.toLocaleString('id-ID')}</span> saat kurir tiba di alamat pengiriman Anda.</p>
+             {/* Menggunakan dark-neutral */}
+             <p className="text-[#254222] mt-4">Anda dapat menghubungi admin untuk info lebih lanjut:</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+        {waLink && adminWhatsAppNumber ? ( // Tampilkan tombol WA hanya jika link dan nomor WA admin ada
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            // Tombol outline main-accent
+            className="flex-1 py-2 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
+                       bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] inline-flex items-center justify-center min-w-[200px]"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12.04 2c-5.45 0-9.9 4.45-9.9 9.9 0 1.76.46 3.44 1.35 4.93L2.05 22l5.14-1.35c1.49.89 3.17 1.35 4.93 1.35 5.45 0 9.9-4.45 9.9-9.9S17.49 2 12.04 2zm5.78 14.15l-.46-.77c-.24-.39-.77-.48-1.15-.24l-1.39.81c-.15.09-.32.14-.5.14-.49 0-.9-.23-1.1-.64l-1.25-2.06c-.4-.66-.2-1.51.46-1.92l.77-.46c.39-.24.48-.77.24-1.15l-.81-1.39c-.09-.15-.14-.32-.14-.5 0-.49.23-.9.64-1.1l2.06-1.25c.4.66.2 1.51-.46 1.92l.46.77c.24.39.77.48 1.15.24l1.39-.81c.15-.09.32-.14.5-.14.49 0 .9.23 1.1.64l1.25 2.06c.4.66.2 1.51-.46 1.92l-.77.46c-.39.24-.48.77-.24 1.15l.81 1.39c.09.15.14.32.14.5 0 .49-.23.9-.64 1.1l-2.06 1.25z"/>
+            </svg>
+            {whatsappButtonText}
+          </a>
+        ) : null}
+        <button
+          onClick={() => navigate('/products')}
+          // Tombol outline dark-neutral
+          className="flex-1 py-2 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
+                     bg-transparent border-2 border-[#254222] text-[#254222] hover:bg-[#254222] hover:text-[#FFFDF5] inline-flex items-center justify-center min-w-[200px]"
+        >
+          Lanjut Belanja
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default OrderConfirmationPage;

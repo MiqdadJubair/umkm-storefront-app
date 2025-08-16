@@ -1,0 +1,15 @@
+/* src/index.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@import "tailwindcss";
+
+
+/* Anda bisa menambahkan CSS kustom di sini di bawah direktif Tailwind jika benar-benar dibutuhkan */
+
+/* Impor font Inter dari Google Fonts */
+
+/* Terapkan font Inter secara global */
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #ece2b1; /* Menggunakan warna primary-background dari Tailwind config */
+}
