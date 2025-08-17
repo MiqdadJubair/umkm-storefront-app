@@ -1,186 +1,111 @@
 // src/pages/ProductListingPage.jsx
 import React, { useState, useEffect } from 'react';
-import ProductCard from '../components/ProductCard';
-import { db } from '../firebase/firebase';
-import { collection, getDocs } from 'firebase/firestore';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/firebase.js'; // Pastikan path ini benar!
+import ProductCard from '../components/ProductCard.jsx'; // Pastikan path ini benar!
 
 function ProductListingPage() {
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('all'); // State untuk kategori aktif
+  const [availableCategories, setAvailableCategories] = useState([]); // State untuk kategori yang tersedia dari Firestore
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sortOption, setSortOption] = useState('default');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [categories, setCategories] = useState([]);
-  const [stockFilter, setStockFilter] = useState(searchParams.get('stock') || 'all');
 
+  // useEffect pertama: Mengambil daftar kategori unik dari semua produk di Firestore
+  // Ini memastikan tab kategori yang ditampilkan dinamis berdasarkan data yang ada.
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchCategories = async () => {
       try {
         const productsCollectionRef = collection(db, 'products');
         const querySnapshot = await getDocs(productsCollectionRef);
+        const categoriesSet = new Set(['all']); // Selalu mulai dengan 'all'
+
+        querySnapshot.docs.forEach(doc => {
+          const productData = doc.data();
+          if (productData.category && typeof productData.category === 'string') {
+            categoriesSet.add(productData.category.toLowerCase());
+          }
+        });
+        setAvailableCategories(Array.from(categoriesSet));
+      } catch (err) {
+        console.error("ERROR: Gagal mengambil kategori unik:", err);
+        setError("Gagal memuat kategori.");
+      }
+    };
+    fetchCategories();
+  }, []); // Hanya dijalankan sekali saat komponen dimuat
+
+  // useEffect kedua: Mengambil produk berdasarkan kategori yang dipilih
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        let productsQuery = collection(db, 'products');
+
+        // Jika kategori bukan 'all', tambahkan filter where
+        if (selectedCategory !== 'all') {
+          // Query Firestore untuk memfilter berdasarkan bidang 'category'
+          productsQuery = query(productsQuery, where('category', '==', selectedCategory));
+        }
+
+        const querySnapshot = await getDocs(productsQuery);
         const productsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         setProducts(productsData);
-
-        const uniqueCategories = [...new Set(productsData.map(product => product.category).filter(Boolean))];
-        setCategories(['all', ...uniqueCategories]);
-
-        setLoading(false);
       } catch (err) {
-        console.error("Error fetching products:", err);
-        setError("Gagal memuat produk. Silakan coba lagi nanti.");
+        console.error("ERROR: Gagal mengambil produk:", err);
+        setError("Gagal memuat produk. Silakan coba lagi.");
+      } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
-  }, []);
-
-  useEffect(() => {
-    setStockFilter(searchParams.get('stock') || 'all');
-  }, [searchParams]);
-
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const handleSortChange = (e) => {
-    setSortOption(e.target.value);
-  };
-
-  const handleCategoryChange = (e) => {
-    setSelectedCategory(e.target.value);
-  };
-
-  const handleStockFilterChange = (e) => {
-    const value = e.target.value;
-    setStockFilter(value);
-    if (value === 'all') {
-      searchParams.delete('stock');
-    } else {
-      searchParams.set('stock', value);
+    // Panggil fetchProducts hanya jika availableCategories sudah dimuat
+    if (availableCategories.length > 0) {
+      fetchProducts();
     }
-    setSearchParams(searchParams);
-  };
-
-  let filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-    (selectedCategory === 'all' || (product.category && product.category.toLowerCase() === selectedCategory.toLowerCase())) &&
-    (stockFilter === 'all' || 
-     (stockFilter === 'available' && (product.stock && product.stock > 0)) ||
-     (stockFilter === 'out-of-stock' && (product.stock === 0)))
-  );
-
-  if (sortOption === 'priceAsc') {
-    filteredProducts.sort((a, b) => (a.price || 0) - (b.price || 0));
-  } else if (sortOption === 'priceDesc') {
-    filteredProducts.sort((a, b) => (b.price || 0) - (a.price || 0));
-  } else if (sortOption === 'nameAsc') {
-    filteredProducts.sort((a, b) => a.name.localeCompare(b.name));
-  } else if (sortOption === 'nameDesc') {
-    filteredProducts.sort((a, b) => b.name.localeCompare(a.name));
-  }
-  
-  const uniqueCategories = [...new Set(products.map(product => product.category).filter(Boolean))];
-
-  if (loading) {
-    // Menggunakan nilai hex langsung untuk warna loading
-    return <div className="text-center text-xl font-semibold text-[#99cc66] font-inter">Memuat produk...</div>;
-  }
+  }, [selectedCategory, availableCategories]); // Ambil ulang produk setiap kali kategori atau kategori yang tersedia berubah
 
   if (error) {
-    // Menggunakan warna bawaan Tailwind (merah)
-    return <div className="text-center text-xl font-semibold text-red-600 font-inter">{error}</div>;
+    return <div className="text-center p-8 text-xl font-semibold text-red-600 font-inter">{error}</div>;
   }
 
   return (
-    // Menggunakan background #d9ecb1 (lebih terang dari primary-background)
-    <div className="container mx-auto p-8 bg-[#d9ecb1] rounded-lg shadow-lg max-w-6xl font-inter">
-      <h2 className="text-3xl font-bold text-[#254222] mb-6 text-center">
-        Semua Produk Aplikasi
-      </h2>
+    <div className="container mx-auto p-4 sm:p-6 md:p-8 bg-[#d9ecb1] rounded-lg shadow-lg max-w-7xl font-inter">
+      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-[#254222] mb-6 text-center">Jelajahi Produk Kami</h1>
 
-      {/* Tombol Navigasi Cepat di atas daftar produk */}
-      <div className="flex justify-center space-x-4 mb-8">
-        <button
-          onClick={() => navigate(-1)}
-          // Tombol outline sesuai palet kita: dark-neutral dengan hover ke dark-neutral + primary-background
-          className="py-2 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#254222] text-[#254222] hover:bg-[#254222] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#254222] focus:ring-opacity-50"
-        >
-          Kembali
-        </button>
-        <button
-          onClick={() => navigate('/cart')}
-          // Tombol outline main-accent
-          className="py-2 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50"
-        >
-          Lihat Keranjang
-        </button>
+      {/* Tabs Kategori - Responsif */}
+      <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-8">
+        {availableCategories.map(cat => (
+          <button
+            key={cat}
+            onClick={() => setSelectedCategory(cat)}
+            // Desain tombol disesuaikan untuk responsif
+            className={`py-2 px-4 rounded-lg text-sm sm:text-base font-semibold transition-colors duration-300 transform active:scale-95
+              ${selectedCategory === cat
+                ? 'bg-[#99cc66] text-[#254222] shadow-md' // Style untuk tab aktif
+                : 'bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#d9ecb1]' // Style untuk tab tidak aktif
+              }`}
+          >
+            {cat.charAt(0).toUpperCase() + cat.slice(1)} {/* Mengubah huruf pertama menjadi kapital */}
+          </button>
+        ))}
       </div>
 
-      {/* Input Pencarian, Dropdown Sortir, dan Filter Kategori */}
-      <div className="mb-8 flex flex-col md:flex-row justify-center items-center gap-4">
-        <input
-          type="text"
-          placeholder="Cari produk berdasarkan nama..."
-          value={searchTerm}
-          onChange={handleSearchChange}
-          // Fokus ring dan border menggunakan main-accent, background #FFFDF5
-          className="w-full md:w-1/2 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300 bg-[#FFFDF5]"
-        />
-        <select
-          value={sortOption}
-          onChange={handleSortChange}
-          // Fokus ring dan border menggunakan main-accent, background #FFFDF5
-          className="w-full md:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300 bg-[#FFFDF5]"
-        >
-          <option value="default">Urutkan Berdasarkan...</option>
-          <option value="nameAsc">Nama (A-Z)</option>
-          <option value="nameDesc">Nama (Z-A)</option>
-          <option value="priceAsc">Harga (Termurah)</option>
-          <option value="priceDesc">Harga (Termahal)</option>
-        </select>
-        <select
-          value={selectedCategory}
-          onChange={handleCategoryChange}
-          // Fokus ring dan border menggunakan main-accent, background #FFFDF5
-          className="w-full md:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300 bg-[#FFFDF5]"
-        >
-          <option value="all">Semua Kategori</option>
-          {uniqueCategories.map(category => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-        <select
-          value={stockFilter}
-          onChange={handleStockFilterChange}
-          // Fokus ring dan border menggunakan main-accent, background #FFFDF5
-          className="w-full md:w-1/4 p-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300 bg-[#FFFDF5]"
-        >
-          <option value="all">Semua Stok</option>
-          <option value="available">Tersedia</option>
-          <option value="out-of-stock">Stok Habis</option>
-        </select>
-      </div>
-
-      {filteredProducts.length === 0 ? (
-        <div className="text-center text-[#254222] text-lg">Tidak ada produk ditemukan.</div>
+      {loading ? (
+        <div className="text-center p-8 text-xl font-semibold text-[#99cc66] font-inter">Memuat produk...</div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))}
+          {products.length === 0 ? (
+            <p className="col-span-full text-center text-[#254222] text-lg">Tidak ada produk dalam kategori ini.</p>
+          ) : (
+            products.map(product => (
+              <ProductCard key={product.id} product={product} />
+            ))
+          )}
         </div>
       )}
     </div>

@@ -14,7 +14,11 @@ function AdminSettingsPage() {
     adminWhatsApp: '',
     bankAccountNumber: '',
     bankAccountName: '',
-    bankName: ''
+    bankName: '',
+    // New E-wallet fields
+    eWalletProvider: '', // e.g., Dana, GoPay, OVO
+    eWalletNumber: '',
+    eWalletAccountName: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -40,7 +44,19 @@ function AdminSettingsPage() {
           setStoreSettings(prev => ({ ...prev, ...docSnap.data() }));
         } else {
           // Jika dokumen belum ada, setel nilai default dan simpan
-          await setDoc(settingsDocRef, storeSettings);
+          // Pastikan semua field default terisi sebelum disimpan
+          await setDoc(settingsDocRef, {
+            storeName: 'UMKM Storefront',
+            ownerName: '',
+            ownerPhone: '',
+            adminWhatsApp: '',
+            bankAccountNumber: '',
+            bankAccountName: '',
+            bankName: '',
+            eWalletProvider: '',
+            eWalletNumber: '',
+            eWalletAccountName: ''
+          });
         }
       } catch (err) {
         console.error("Error fetching store settings:", err);
@@ -281,6 +297,55 @@ function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* Pengaturan E-Wallet */}
+        {/* Menggunakan background #FFFDF5 */}
+        <div className="bg-[#FFFDF5] p-6 rounded-lg shadow-sm">
+          {/* Menggunakan dark-neutral */}
+          <h2 className="text-xl font-semibold text-[#254222] mb-4">Informasi E-Wallet</h2>
+          <div>
+            <label htmlFor="eWalletProvider" className="block text-[#254222] text-sm font-bold mb-2">
+              Penyedia E-Wallet (mis. Dana, GoPay, OVO)
+            </label>
+            <input
+              type="text"
+              id="eWalletProvider"
+              name="eWalletProvider"
+              value={storeSettings.eWalletProvider}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+              placeholder="Contoh: Dana"
+            />
+          </div>
+          <div className="mt-4">
+            <label htmlFor="eWalletNumber" className="block text-[#254222] text-sm font-bold mb-2">
+              Nomor E-Wallet
+            </label>
+            <input
+              type="text"
+              id="eWalletNumber"
+              name="eWalletNumber"
+              value={storeSettings.eWalletNumber}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+              placeholder="Contoh: 081234567890"
+            />
+          </div>
+          <div className="mt-4">
+            <label htmlFor="eWalletAccountName" className="block text-[#254222] text-sm font-bold mb-2">
+              Nama Akun E-Wallet
+            </label>
+            <input
+              type="text"
+              id="eWalletAccountName"
+              name="eWalletAccountName"
+              value={storeSettings.eWalletAccountName}
+              onChange={handleChange}
+              className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+              placeholder="Contoh: Budi Santoso"
+            />
+          </div>
+        </div>
+
         <button
           type="submit"
           // Tombol outline main-accent
@@ -291,7 +356,7 @@ function AdminSettingsPage() {
           {saving ? 'Menyimpan Pengaturan...' : 'Simpan Pengaturan'}
         </button>
       </form>
-      
+
       {/* Bagian Ubah Kata Sandi */}
       {/* Menggunakan background #FFFDF5 */}
       <div className="mt-10 bg-[#FFFDF5] p-6 rounded-lg shadow-sm">
@@ -342,7 +407,7 @@ function AdminSettingsPage() {
             type="submit"
             // Tombol outline biru (#6699cc)
             className="w-full py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                       bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#254222]"
+                        bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#254222]"
           >
             Ubah Kata Sandi
           </button>

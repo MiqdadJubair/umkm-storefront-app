@@ -125,12 +125,13 @@ function CheckoutPage() {
         {/* Menggunakan dark-neutral */}
         <h1 className="text-3xl font-bold text-[#254222] mb-6">Checkout</h1>
         {/* Menggunakan dark-neutral */}
-        <p className="text-[#254222] text-lg">Keranjang belanja Anda kosong. Tidak ada yang perlu di-checkout.</p>
+        <p className="text-[#254222] text-lg mb-6">Keranjang belanja Anda kosong. Tidak ada yang perlu di-checkout.</p>
         <button
           onClick={() => navigate('/products')}
           // Tombol outline #6699cc dengan hover mengisi dan teks dark-neutral
-          className="mt-6 py-2 px-4 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#254222]"
+          className="py-2 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
+                     bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#254222]
+                     focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50"
         >
           Lanjut Belanja
         </button>
@@ -143,7 +144,7 @@ function CheckoutPage() {
 
   return (
     // Menggunakan background #d9ecb1 dan font-inter
-    <div className="container mx-auto p-8 bg-[#d9ecb1] rounded-lg shadow-lg max-w-4xl font-inter">
+    <div className="container mx-auto p-4 sm:p-8 bg-[#d9ecb1] rounded-lg shadow-lg max-w-4xl font-inter">
       {/* Menggunakan dark-neutral */}
       <h1 className="text-3xl font-bold text-[#254222] mb-6 text-center">Checkout Pesanan</h1>
 
@@ -154,45 +155,14 @@ function CheckoutPage() {
         </div>
       )}
 
-      {/* Konten formulir Checkout utama */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        {/* Ringkasan Pesanan */}
-        {/* Menggunakan background #FFFDF5 */}
-        <div className="bg-[#FFFDF5] rounded-lg p-6 shadow-sm">
-          {/* Menggunakan dark-neutral */}
-          <h2 className="text-2xl font-semibold text-[#254222] mb-4">Ringkasan Pesanan</h2>
-          <div className="space-y-3">
-            {cartItems.map(item => (
-              // Menggunakan dark-neutral
-              <div key={item.id} className="flex justify-between items-center text-[#254222]">
-                <span>{item.name} (x{item.quantity})</span>
-                <span>Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
-              </div>
-            ))}
-          </div>
-          {/* Garis pemisah, menggunakan dark-neutral */}
-          <div className="border-t-2 border-[#254222] mt-4 pt-4 flex justify-between items-center text-xl font-bold text-[#254222]">
-            <span>Subtotal:</span>
-            <span>Rp {subtotalAmount.toLocaleString('id-ID')}</span>
-          </div>
-          {/* Menggunakan dark-neutral */}
-          <div className="mt-2 flex justify-between items-center text-xl font-bold text-[#254222]">
-            <span>Biaya Pengiriman:</span>
-            <span>Rp {deliveryFee.toLocaleString('id-ID')}</span>
-          </div>
-          {/* Total Pembayaran, menggunakan main-accent (#99cc66) untuk menonjol */}
-          <div className="mt-2 flex justify-between items-center text-2xl font-bold text-[#99cc66] border-t pt-2 border-[#254222]">
-            <span>Total Pembayaran:</span>
-            <span>Rp {finalTotalAmount.toLocaleString('id-ID')}</span>
-          </div>
-        </div>
-
+      {/* Konten formulir Checkout utama - menggunakan grid 1 kolom di mobile, 2 kolom di md ke atas */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
         {/* Formulir Informasi Pelanggan */}
         {/* Menggunakan background #FFFDF5 */}
-        <div className="bg-[#FFFDF5] rounded-lg p-6 shadow-sm">
+        <div className="bg-[#FFFDF5] rounded-lg p-6 shadow-md">
           {/* Menggunakan dark-neutral */}
-          <h2 className="text-2xl font-semibold text-[#254222] mb-4">Informasi Pengiriman</h2>
-          <form onSubmit={handleSubmitOrder} className="space-y-4">
+          <h2 className="text-2xl font-semibold text-[#254222] mb-5 border-b-2 border-[#254222] pb-3">Informasi Pengiriman</h2>
+          <form className="space-y-4"> {/* Removed onSubmit from here, it's on the main button */}
             <div>
               {/* Menggunakan dark-neutral */}
               <label htmlFor="name" className="block text-[#254222] text-sm font-bold mb-2">Nama Lengkap</label>
@@ -203,7 +173,8 @@ function CheckoutPage() {
                 value={customerInfo.name}
                 onChange={handleCustomerInfoChange}
                 // Fokus ring dan border menggunakan main-accent
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+                className="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-[#254222] leading-tight
+                           focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
                 placeholder="Contoh: Budi Santoso"
                 required
               />
@@ -218,7 +189,8 @@ function CheckoutPage() {
                 value={customerInfo.email}
                 onChange={handleCustomerInfoChange}
                 // Fokus ring dan border menggunakan main-accent
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+                className="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-[#254222] leading-tight
+                           focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
                 placeholder="Contoh: budi@email.com"
               />
             </div>
@@ -232,10 +204,11 @@ function CheckoutPage() {
                 value={customerInfo.phone}
                 onChange={handleCustomerInfoChange}
                 // Fokus ring dan border menggunakan main-accent
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+                className="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-[#254222] leading-tight
+                           focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
                 pattern="[0-9+]*"
                 inputMode="tel"
-                placeholder="Contoh: 081234567890 (hanya angka)"
+                placeholder="Contoh: 081234567890"
                 required
               />
             </div>
@@ -248,7 +221,8 @@ function CheckoutPage() {
                 value={customerInfo.address}
                 onChange={handleCustomerInfoChange}
                 // Fokus ring dan border menggunakan main-accent
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+                className="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-[#254222] leading-tight
+                           focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
                 rows="3"
                 placeholder="Contoh: Jl. Raya Bogor No. 123, Kel. ABC, Kec. XYZ, Kota Jakarta Timur"
                 required
@@ -263,14 +237,55 @@ function CheckoutPage() {
                 value={customerInfo.notes}
                 onChange={handleCustomerInfoChange}
                 // Fokus ring dan border menggunakan main-accent
-                className="shadow appearance-none border rounded w-full py-2 px-3 text-[#254222] leading-tight focus:outline-none focus:shadow-outline transition-all duration-300 focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66]"
+                className="shadow-sm appearance-none border rounded-md w-full py-2 px-3 text-[#254222] leading-tight
+                           focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
                 rows="2"
                 placeholder="Contoh: Titip ke satpam, jangan tekan bel."
               ></textarea>
             </div>
+          </form>
+        </div>
+
+        {/* Ringkasan Pesanan & Metode Pembayaran */}
+        <div className="flex flex-col gap-6"> {/* Use flex-col to stack summary and payment */}
+          {/* Ringkasan Pesanan */}
+          {/* Menggunakan background #FFFDF5 */}
+          <div className="bg-[#FFFDF5] rounded-lg p-6 shadow-md flex-grow"> {/* flex-grow to take available height */}
             {/* Menggunakan dark-neutral */}
-            <h2 className="text-2xl font-semibold text-[#254222] mb-4 mt-6">Metode Pembayaran</h2>
-            <div className="space-y-2 mb-4">
+            <h2 className="text-2xl font-semibold text-[#254222] mb-5 border-b-2 border-[#254222] pb-3">Ringkasan Pesanan</h2>
+            <div className="space-y-3 mb-4">
+              {cartItems.map(item => (
+                // Menggunakan dark-neutral
+                <div key={item.id} className="flex justify-between items-center text-[#254222] text-base">
+                  <span className="flex-grow pr-2">{item.name} (x{item.quantity})</span>
+                  <span className="font-medium text-right">Rp {(item.price * item.quantity).toLocaleString('id-ID')}</span>
+                </div>
+              ))}
+            </div>
+            {/* Garis pemisah, menggunakan dark-neutral */}
+            <div className="border-t-2 border-[#254222] mt-4 pt-4 space-y-2">
+              <div className="flex justify-between items-center text-lg font-bold text-[#254222]">
+                <span>Subtotal:</span>
+                <span>Rp {subtotalAmount.toLocaleString('id-ID')}</span>
+              </div>
+              {/* Menggunakan dark-neutral */}
+              <div className="flex justify-between items-center text-lg font-bold text-[#254222]">
+                <span>Biaya Pengiriman:</span>
+                <span>Rp {deliveryFee.toLocaleString('id-ID')}</span>
+              </div>
+              {/* Total Pembayaran, menggunakan main-accent (#99cc66) untuk menonjol */}
+              <div className="flex justify-between items-center text-xl font-bold text-[#99cc66] border-t pt-2 border-[#254222]">
+                <span>Total Pembayaran:</span>
+                <span>Rp {finalTotalAmount.toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Metode Pembayaran */}
+          <div className="bg-[#FFFDF5] rounded-lg p-6 shadow-md">
+            {/* Menggunakan dark-neutral */}
+            <h2 className="text-2xl font-semibold text-[#254222] mb-5 border-b-2 border-[#254222] pb-3">Metode Pembayaran</h2>
+            <div className="space-y-3 mb-6">
               <div className="flex items-center">
                 <input
                   type="radio"
@@ -280,10 +295,10 @@ function CheckoutPage() {
                   checked={paymentMethod === 'bankTransfer'}
                   onChange={handlePaymentMethodChange}
                   // Radio button dot, menggunakan main-accent
-                  className="mr-2 h-4 w-4 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded"
+                  className="mr-3 h-5 w-5 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded-full cursor-pointer"
                 />
                 {/* Menggunakan dark-neutral */}
-                <label htmlFor="bankTransfer" className="text-[#254222] text-base">Transfer Bank</label>
+                <label htmlFor="bankTransfer" className="text-[#254222] text-base cursor-pointer">Transfer Bank</label>
               </div>
               <div className="flex items-center">
                 <input
@@ -294,10 +309,10 @@ function CheckoutPage() {
                   checked={paymentMethod === 'eWallet'}
                   onChange={handlePaymentMethodChange}
                   // Radio button dot, menggunakan main-accent
-                  className="mr-2 h-4 w-4 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded"
+                  className="mr-3 h-5 w-5 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded-full cursor-pointer"
                 />
                 {/* Menggunakan dark-neutral */}
-                <label htmlFor="eWallet" className="text-[#254222] text-base">E-Wallet</label>
+                <label htmlFor="eWallet" className="text-[#254222] text-base cursor-pointer">E-Wallet</label>
               </div>
               <div className="flex items-center">
                 <input
@@ -308,22 +323,23 @@ function CheckoutPage() {
                   checked={paymentMethod === 'cod'}
                   onChange={handlePaymentMethodChange}
                   // Radio button dot, menggunakan main-accent
-                  className="mr-2 h-4 w-4 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded"
+                  className="mr-3 h-5 w-5 text-[#99cc66] focus:ring-[#99cc66] border-gray-300 rounded-full cursor-pointer"
                 />
                 {/* Menggunakan dark-neutral */}
-                <label htmlFor="cod" className="text-[#254222] text-base">Cash On Delivery (COD)</label>
+                <label htmlFor="cod" className="text-[#254222] text-base cursor-pointer">Cash On Delivery (COD)</label>
               </div>
             </div>
             <button
               type="submit"
-              // Tombol outline main-accent dengan hover mengisi dan teks dark-neutral
-              className="w-full py-3 px-6 rounded-lg text-xl font-semibold transition-colors duration-300 transform active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50
-                         bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222]"
+              onClick={handleSubmitOrder} // Submit handler pada tombol ini
+              // Tombol utama: bg main-accent, teks dark-neutral, dengan hover mengisi. Disesuaikan untuk ukuran sedang
+              className="w-full py-3 px-6 rounded-lg text-xl font-semibold transition-colors duration-300 transform active:scale-95
+                         bg-[#99cc66] text-[#254222] hover:bg-[#77a04f] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50"
               disabled={loading}
             >
               {loading ? 'Memproses Pesanan...' : 'Buat Pesanan Sekarang'}
             </button>
-          </form>
+          </div>
         </div>
       </div>
     </div>
