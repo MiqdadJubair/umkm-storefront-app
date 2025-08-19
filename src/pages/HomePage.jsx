@@ -1,99 +1,131 @@
 // src/pages/HomePage.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ProductCard from '../components/ProductCard.jsx';
 import { db } from '../firebase/firebase.js';
-import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { ArrowRight, Phone } from 'lucide-react'; // Menghapus Mail karena email kontak dihapus
+import { collection, getDocs, doc, getDoc, query, orderBy, limit } from 'firebase/firestore';
+import { ArrowRight, Phone } from 'lucide-react'; // Hapus ChevronLeft, ChevronRight
 import { useNavigate } from 'react-router-dom';
+import { useCart } from '../context/CartContext.jsx';
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function HomePage() {
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('all'); // 'all' akan jadi 'newest'
   const [storeName, setStoreName] = useState('UMKM Storefront');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [cartItems, setCartItems] = useState([]); // Pastikan ini dihubungkan ke CartContext jika ada
   const [showNotification, setShowNotification] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState('');
   const [categories, setCategories] = useState([]);
 
   // State untuk informasi kontak dinamis (dari Firestore) dan nama pemilik
-  const [adminWhatsApp, setAdminWhatsApp] = useState('6281234567890'); // Default
-  const [ownerName, setOwnerName] = useState(''); // NEW: State untuk nama pemilik
+  const [adminWhatsApp, setAdminWhatsApp] = useState('6281234567890');
+  const [ownerName, setOwnerName] = useState('');
 
   const navigate = useNavigate();
+  const { addToCart } = useCart();
 
+  // Panggil usePageTitle
+  usePageTitle("Beranda"); // Judul halaman utama
+
+  // Fungsi untuk mengambil data produk, pengaturan toko, dan kategori
   useEffect(() => {
     const fetchData = async () => {
       try {
+        // Ambil pengaturan toko (store name, admin WhatsApp, owner name)
         const settingsDocRef = doc(db, 'storeSettings', 'general');
         const settingsDocSnap = await getDoc(settingsDocRef);
         let currentStoreName = 'UMKM Storefront';
-        let currentOwnerName = ''; // Default owner name
+        let currentOwnerName = '';
 
         if (settingsDocSnap.exists()) {
           const data = settingsDocSnap.data();
           currentStoreName = data.storeName ? `${data.storeName.replace(/\*\*/g, '').trim()} Storefront` : 'UMKM Storefront';
           setStoreName(currentStoreName);
-
-          // Ambil nomor WhatsApp admin dari Firestore
           setAdminWhatsApp(data.adminWhatsApp || '6281234567890');
-          // NEW: Ambil nama pemilik dari Firestore
           currentOwnerName = data.ownerName ? data.ownerName.trim() : '';
           setOwnerName(currentOwnerName);
         }
-        document.title = currentStoreName;
 
+        // Ambil produk (untuk filtering kategori)
         const productsCollectionRef = collection(db, 'products');
-        const querySnapshot = await getDocs(productsCollectionRef);
-        const productsData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          category: doc.data().category ? String(doc.data().category).toLowerCase() : 'uncategorized',
-        }));
+        
+        // Query untuk mengambil SEMUA produk untuk filtering kategori
+        const allProductsQuerySnapshot = await getDocs(productsCollectionRef);
+        const allProductsData = allProductsQuerySnapshot.docs.map(doc => {
+          const data = doc.data();
+          const productCategories = (data.categories && Array.isArray(data.categories))
+            ? data.categories.map(cat => String(cat).toLowerCase())
+            : ['uncategorized']; // Fallback jika categories field tidak ada atau bukan array
 
-        setProducts(productsData);
+          return {
+            id: doc.id,
+            ...data,
+            categories: productCategories,
+          };
+        });
+        setProducts(allProductsData); // Set semua produk untuk fitur filter kategori
 
-        const uniqueCategories = new Set(productsData.map(product => product.category));
-        setCategories(['all', ...Array.from(uniqueCategories)]);
+        // Ekstrak kategori unik dari SEMUA produk
+        const allProductCategoriesRaw = allProductsData.flatMap(product => product.categories || []);
+        const uniqueCategories = new Set(allProductCategoriesRaw.filter(cat => cat !== 'uncategorized'));
+        setCategories(['all', ...Array.from(uniqueCategories)]); // 'all' akan jadi 'Produk Terbaru'
 
         setLoading(false);
       } catch (err) {
         console.error("Error fetching data for Home Page:", err);
         setError("Gagal memuat beranda. Silakan coba lagi nanti.");
         setLoading(false);
-        document.title = 'UMKM Storefront';
       }
     };
 
     fetchData();
   }, []);
 
+  // Filter produk berdasarkan tab aktif (jika bukan 'all'/'Produk Terbaru')
+  const filteredProducts = products.filter(product => {
+    // Jika tab 'all' aktif, kita akan menampilkan produk terbaru (hingga 5)
+    if (activeTab === 'all') {
+      return true; // Semua produk akan dipertimbangkan, pengurutan dan pembatasan dilakukan nanti
+    }
+    // Filter berdasarkan kategori
+    return product.categories && Array.isArray(product.categories) && product.categories.includes(activeTab);
+  });
+
+  // Logika untuk menampilkan produk terbaru (untuk tampilan kartu)
+  // Mengambil hingga 5 produk terbaru dan mengurutkannya
+  const latestProducts = [...products]
+    .filter(product => product.createdAt) // Pastikan hanya produk dengan createdAt yang dipertimbangkan
+    .sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return dateB - dateA; // Urutkan dari terbaru ke terlama
+    })
+    .slice(0, 4); // Ambil hingga 4 produk terbaru
+
   const handleTabClick = (tabName) => {
     setActiveTab(tabName);
   };
 
-  const filteredProducts = products.filter(product => {
-    if (activeTab === 'all') {
-      return true;
-    }
-    return product.category === activeTab;
-  });
-
   const handleAddToCart = (product) => {
-    setCartItems(prevItems => {
-      const existingItem = prevItems.find(item => item.id === product.id);
-      if (existingItem) {
-        return prevItems.map(item =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      } else {
-        return [...prevItems, { ...product, quantity: 1 }];
-      }
-    });
+    if (!product || !product.id) {
+        console.error("ERROR: Produk atau ID produk tidak valid untuk ditambahkan ke keranjang.", product);
+        displayNotification("Produk tidak valid untuk ditambahkan.", 'error');
+        return;
+    }
+    addToCart(product, 1);
+    displayNotification(`"${product.name}" telah ditambahkan ke keranjang!`, 'success');
+  };
 
-    setNotificationMessage(`"${product.name}" telah ditambahkan ke keranjang!`);
+  // Fungsi untuk notifikasi pop-up
+  const displayNotification = (message, type = 'success') => {
+    setNotificationMessage(message);
     setShowNotification(true);
+    // Sembunyikan notifikasi setelah 3 detik
+    setTimeout(() => {
+      setShowNotification(false);
+      setNotificationMessage('');
+    }, 3000);
   };
 
   useEffect(() => {
@@ -133,7 +165,7 @@ function HomePage() {
         <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#254222] mb-2 leading-tight">
           Selamat datang di <span className="text-[#99cc66]">{storeName}</span>!
         </h1>
-        {ownerName && ( // NEW: Tampilkan tagline jika ownerName ada
+        {ownerName && (
           <p className="text-lg sm:text-xl text-[#254222] font-medium opacity-80 mb-4 font-serif">
             by <span className="text-[#6699cc] font-bold">{ownerName}</span>
           </p>
@@ -144,7 +176,7 @@ function HomePage() {
         <button
           onClick={navigateToProductListing}
           className="inline-flex items-center px-6 py-3 text-lg sm:px-8 sm:py-4 sm:text-xl bg-[#6699cc] text-[#FFFDF5] font-bold rounded-lg shadow-lg
-                     hover:bg-[#5a8bbd] transform transition-transform duration-300 active:scale-95"
+                      hover:bg-[#5a8bbd] transform transition-transform duration-300 active:scale-95"
         >
           Mulai Jelajahi Produk Kami!
           <ArrowRight className="ml-3 w-5 h-5" />
@@ -157,7 +189,7 @@ function HomePage() {
       </h2>
 
       {/* Tabs untuk Filtering Kategori (Dynamic & Mobile-friendly) */}
-      <div className="flex justify-center mb-8 border-b-2 border-[#b9e07f] w-full max-w-2xl overflow-x-auto whitespace-nowrap px-4 sm:px-0 scrollbar-hide">
+      <div className="flex flex-wrap justify-center gap-2 mb-8 border-b-2 border-[#b9e07f] w-full max-w-2xl px-4 sm:px-0">
         {categories.map(category => (
           <button
             key={category}
@@ -165,7 +197,7 @@ function HomePage() {
             className={`flex-shrink-0 py-3 px-4 sm:px-6 text-sm sm:text-base lg:text-lg font-medium rounded-t-lg transition-colors duration-300
                         ${activeTab === category ? 'border-b-4 border-[#6699cc] text-[#6699cc] font-bold' : 'text-[#254222] hover:text-[#6699cc]'}`}
           >
-            {category === 'all' ? 'Semua' : category.charAt(0).toUpperCase() + category.slice(1)}
+            {category === 'all' ? 'Produk Terbaru' : category.charAt(0).toUpperCase() + category.slice(1)}
           </button>
         ))}
       </div>
@@ -173,17 +205,30 @@ function HomePage() {
       {products.length === 0 ? (
         <div className="col-span-full text-center text-[#254222] text-xl p-4">Tidak ada produk ditemukan. Tambahkan produk dari halaman admin!</div>
       ) : (
-        <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 p-2 sm:p-0">
-          {filteredProducts.length > 0 ? (
-            filteredProducts.map(product => (
-              <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
-            ))
-          ) : (
-            <div className="col-span-full text-center text-[#254222] text-xl p-4">
-              Tidak ada produk ditemukan untuk kategori ini.
-            </div>
-          )}
-        </div>
+        <>
+          {/* Tampilkan produk terbaru atau produk berdasarkan kategori dalam tata letak kartu */}
+          <div className="w-full grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 p-2 sm:p-0">
+            {activeTab === 'all' ? ( // Jika tab "Produk Terbaru" aktif
+              latestProducts.length > 0 ? (
+                latestProducts.map(product => (
+                  <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
+                ))
+              ) : (
+                <div className="col-span-full text-center text-[#254222] text-xl p-4">Tidak ada produk terbaru yang tersedia.</div>
+              )
+            ) : ( // Jika tab kategori lainnya aktif
+              filteredProducts.length > 0 ? (
+                filteredProducts.map(product => (
+                  <ProductCard key={product.id} product={product} onAddToCart={handleAddToCart} />
+                ))
+              ) : (
+                <div className="col-span-full text-center text-[#254222] text-xl p-4">
+                  Tidak ada produk ditemukan untuk kategori ini.
+                </div>
+              )
+            )}
+          </div>
+        </>
       )}
 
       {/* Footer Call to Action */}
@@ -194,7 +239,7 @@ function HomePage() {
         <button
           onClick={navigateToProductListing}
           className="inline-flex items-center px-6 py-3 bg-[#99cc66] text-[#FFFDF5] text-lg sm:px-8 sm:py-4 sm:text-xl font-bold rounded-lg shadow-md
-                     hover:bg-[#7aaf4f] transform transition-transform duration-300 active:scale-95"
+                      hover:bg-[#7aaf4f] transform transition-transform duration-300 active:scale-95"
         >
           Lihat Koleksi Lengkap
           <ArrowRight className="ml-3 w-5 h-5" />
@@ -209,20 +254,19 @@ function HomePage() {
         <p className="text-base sm:text-lg text-[#254222] mb-8 leading-relaxed max-w-xl mx-auto">
           Punya pertanyaan, saran, atau ingin berkolaborasi? Jangan ragu untuk menghubungi tim ramah kami!
         </p>
-        <div className="flex justify-center items-center"> {/* NEW: Menghapus flex-col sm:flex-row dan gap, menyesuaikan untuk satu tombol */}
+        <div className="flex justify-center items-center">
           <a
-            href={`https://wa.me/${adminWhatsApp}`}
+            href={`https://wa.me/${adminWhatsApp}?text=Salam%2C%20ka%20${ownerName || 'Admin'}%20dan%20Tim%20${storeName}%2C%20saya%20tertarik%20untuk%20mengetahui%20lebih%20lanjut%20mengenai%20produk%20atau%20layanan%20kakak%20dan%20Tim.%20Bisakah%20saya%20mendapatkan%20informasi%20tentang%20[Mohon%20isi%20detail%20pertanyaan%20Anda%20di%20sini].%20Mohon%20bantuannya.%20Terima%20kasih.`}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full max-w-xs inline-flex items-center justify-center px-6 sm:px-8 py-3 sm:py-4 bg-[#254222] text-white font-bold rounded-full shadow-lg text-base sm:text-lg transition-all duration-300 transform
-                       hover:scale-105 hover:bg-[#3d6339] focus:outline-none focus:ring-4 focus:ring-[#254222] focus:ring-opacity-50
-                       group relative overflow-hidden"
+                                  hover:scale-105 hover:bg-[#3d6339] focus:outline-none focus:ring-4 focus:ring-[#254222] focus:ring-opacity-50
+                                  group relative overflow-hidden"
           >
             <Phone className="mr-2 sm:mr-3 w-5 h-5 sm:w-6 sm:h-6 transform transition-transform duration-300 group-hover:rotate-12" />
             <span className="relative z-10">WhatsApp Kami</span>
             <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-green-600 opacity-0 group-hover:opacity-20 transition-opacity duration-300"></div>
           </a>
-          {/* NEW: Tombol email dihapus sesuai permintaan */}
         </div>
       </div>
 
@@ -236,14 +280,6 @@ function HomePage() {
         }
         .animate-fade-in-out {
           animation: fade-in-out 3s ease-in-out forwards;
-        }
-        /* Hide scrollbar for aesthetic purposes, but keep functionality */
-        .scrollbar-hide {
-          -ms-overflow-style: none; /* IE and Edge */
-          scrollbar-width: none;    /* Firefox */
-        }
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none; /* Chrome, Safari, Opera */
         }
       `}</style>
     </div>

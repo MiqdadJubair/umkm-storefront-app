@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext'; // Impor useCart hook
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function CartPage() {
   const navigate = useNavigate();
@@ -13,6 +14,8 @@ function CartPage() {
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState('alert'); // Bisa 'alert' atau 'confirm'
   const [onConfirmAction, setOnConfirmAction] = useState(null); // Fungsi yang akan dijalankan saat konfirmasi
+  // NEW: Panggil usePageTitle
+  usePageTitle("Keranjang Belanja");
 
   // Fungsi untuk menampilkan modal kustom (baik alert maupun konfirmasi)
   const displayCustomModal = (message, type = 'alert', confirmAction = null) => {

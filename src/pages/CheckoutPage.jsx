@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext'; // Impor useCart hook
-import { db } from '../firebase/firebase'; // Impor instance Firestore
+import { db } from '../firebase/firebase.js'; // Impor instance Firestore
 import { collection, addDoc } from 'firebase/firestore'; // Impor fungsi Firestore
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function CheckoutPage() {
   const navigate = useNavigate();
@@ -21,6 +22,8 @@ function CheckoutPage() {
   const [error, setError] = useState('');
 
   const deliveryFee = 20000; // Biaya pengiriman tetap
+  // NEW: Panggil usePageTitle
+  usePageTitle("Checkout");
 
   // Handler untuk perubahan input formulir informasi pelanggan
   const handleCustomerInfoChange = (e) => {

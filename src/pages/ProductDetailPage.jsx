@@ -10,6 +10,8 @@ import { db, auth } from '../firebase/firebase.js';
 import { collection, doc, getDoc, getDocs, addDoc, updateDoc, query, where } from 'firebase/firestore';
 import { useCart } from '../context/CartContext.jsx';
 import ProductCard from '../components/ProductCard.jsx';
+import usePageTitle from '../hooks/usePageTitle.js';
+import { ArrowRight, Phone } from 'lucide-react'; // Menghapus Mail karena email kontak dihapus
 
 function ProductDetailPage() {
   const { id } = useParams();
@@ -28,6 +30,9 @@ function ProductDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = '';
+
+  // NEW: Panggil usePageTitle
+  usePageTitle("Detail Produk");
 
   // NEW STATE: State untuk mengontrol tampilan semua ulasan
   const [showAllReviews, setShowAllReviews] = useState(false);
@@ -113,11 +118,25 @@ function ProductDetailPage() {
     displayNotification(`${quantity} ${product.name} telah ditambahkan ke keranjang!`, 'success');
   };
 
-  // Fungsi untuk mengubah kuantitas
+  // Fungsi untuk mengubah kuantitas (dari input manual)
   const handleQuantityChange = (e) => {
-    const value = parseInt(e.target.value);
-    // Memastikan kuantitas tidak kurang dari 1, atau 0 jika produk habis stok (tidak bisa menambah)
-    setQuantity(value > 0 ? value : 1);
+    const inputValue = e.target.value; // Dapatkan nilai input sebagai string
+
+    // Jika input kosong, biarkan state quantity kosong (tapi pastikan addToCart tidak dipanggil dengan ini)
+    if (inputValue === '') {
+      setQuantity('');
+      return;
+    }
+
+    // Ubah ke integer. Jika tidak valid (misal: "a", atau hanya tanda "-"), set ke 1
+    let parsedValue = parseInt(inputValue, 10);
+    if (isNaN(parsedValue)) {
+      parsedValue = 1; // Default ke 1 jika input bukan angka
+    }
+
+    // Pastikan kuantitas tidak kurang dari 1, dan tidak lebih dari stok jika ada batasnya
+    // Asumsi: Kita tidak memiliki max stock limit yang keras di sini, hanya min 1
+    setQuantity(Math.max(1, parsedValue));
   };
 
   // Fungsi untuk submit ulasan baru

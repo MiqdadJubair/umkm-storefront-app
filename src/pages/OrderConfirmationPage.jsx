@@ -1,8 +1,9 @@
 // src/pages/OrderConfirmationPage.jsx
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { db } from '../firebase/firebase'; // Impor db
+import { db } from '../firebase/firebase.js'; // Impor db
 import { doc, getDoc } from 'firebase/firestore'; // Impor doc dan getDoc
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function OrderConfirmationPage() {
   const location = useLocation();
@@ -18,6 +19,8 @@ function OrderConfirmationPage() {
   const [loadingSettings, setLoadingSettings] = useState(true); // State loading untuk pengaturan toko
   const [copyMessage, setCopyMessage] = useState(''); // State untuk pesan salin
   const [initialLoadError, setInitialLoadError] = useState(false); // State untuk error load awal
+  // NEW: Panggil usePageTitle
+  usePageTitle("Konfirmasi Pesanan");
 
   useEffect(() => {
     // Ambil detail pesanan dari state navigasi

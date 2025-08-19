@@ -1,8 +1,9 @@
 // src/pages/OrderManagementPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { db } from '../firebase/firebase';
+import { db } from '../firebase/firebase.js';
 import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle.js';
 
 // Import ikon dari lucide-react
 import {
@@ -17,6 +18,9 @@ function OrderManagementPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const navigate = useNavigate();
+
+  // NEW: Panggil usePageTitle
+  usePageTitle("Manejemen Pesanan");
 
   // State untuk modal kustom
   const [showSuccessModal, setShowSuccessModal] = useState(false);

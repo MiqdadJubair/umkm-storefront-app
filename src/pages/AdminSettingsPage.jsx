@@ -1,9 +1,10 @@
 // src/pages/AdminSettingsPage.jsx
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase/firebase'; // Impor auth
+import { db, auth } from '../firebase/firebase.js'; // Impor auth
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { updatePassword } from 'firebase/auth'; // Impor updatePassword
 import { useNavigate } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function AdminSettingsPage() {
   const navigate = useNavigate();
@@ -30,6 +31,8 @@ function AdminSettingsPage() {
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [passwordChangeError, setPasswordChangeError] = useState(null);
   const [passwordChangeSuccess, setPasswordChangeSuccess] = useState('');
+  // NEW: Panggil usePageTitle
+  usePageTitle("Pengaturan Toko");
 
 
   // Dokumen settings akan disimpan dengan ID tetap 'general'

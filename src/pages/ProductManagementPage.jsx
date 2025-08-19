@@ -1,8 +1,9 @@
 // src/pages/ProductManagementPage.jsx
 import React, { useState, useEffect, useCallback } from 'react';
-import { db } from '../firebase/firebase';
-import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../firebase/firebase.js';
+import { collection, getDocs, addDoc, doc, deleteDoc, updateDoc, serverTimestamp } from 'firebase/firestore'; // Import serverTimestamp
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import usePageTitle from '../hooks/usePageTitle.js';
 
 // Import ikon dari lucide-react
 import {
@@ -15,7 +16,7 @@ function ProductManagementPage() {
   const [searchParams] = useSearchParams();
 
   const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true); // Kesalahan ini telah diperbaiki
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newProduct, setNewProduct] = useState({
     name: '',
@@ -25,8 +26,7 @@ function ProductManagementPage() {
     description: '',
     weight: '',
     origin: '',
-    category: ''
-    // Rating dan Reviews tidak lagi di sini karena diisi otomatis oleh customer
+    categoriesInput: '' // Menggunakan categoriesInput untuk string yang dipisahkan koma
   });
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
@@ -36,7 +36,10 @@ function ProductManagementPage() {
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [stockFilter, setStockFilter] = useState(searchParams.get('stock') || 'all');
   const [sortOption, setSortOption] = useState('default');
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([]); // Daftar kategori unik untuk filter
+
+  // Panggil usePageTitle
+  usePageTitle("Manajemen Produk");
 
   // State untuk modal kustom
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -55,14 +58,27 @@ function ProductManagementPage() {
     try {
       const productsCollectionRef = collection(db, 'products');
       const querySnapshot = await getDocs(productsCollectionRef);
-      const productsData = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const productsData = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Pastikan 'categories' adalah array, jika tidak ada atau bukan, default ke array kosong
+        const productCategories = (data.categories && Array.isArray(data.categories))
+          ? data.categories.map(cat => String(cat).toLowerCase())
+          : [];
+
+        return {
+          id: doc.id,
+          ...data,
+          categories: productCategories, // Pastikan product.categories adalah array
+          // Tambahkan categoriesInput untuk mengisi form edit nanti (join array ke string)
+          categoriesInput: productCategories.join(', ')
+        };
+      });
       setProducts(productsData);
 
-      const uniqueCategories = [...new Set(productsData.map(product => product.category).filter(Boolean))];
-      setCategories(['all', ...uniqueCategories]);
+      // Mengumpulkan semua kategori unik dari array 'categories' setiap produk
+      const allProductCategories = productsData.flatMap(product => product.categories || []);
+      const uniqueCategories = new Set(allProductCategories.filter(cat => cat !== 'uncategorized'));
+      setCategories(['all', ...Array.from(uniqueCategories)]);
 
       setLoading(false);
     } catch (err) {
@@ -74,7 +90,7 @@ function ProductManagementPage() {
 
   useEffect(() => {
     fetchProducts();
-  }, [fetchProducts]); // Panggil fetchProducts saat komponen dimuat atau fetchProducts berubah
+  }, [fetchProducts]);
 
   useEffect(() => {
     // Memperbarui filter stok dari URL saat searchParams berubah
@@ -97,30 +113,42 @@ function ProductManagementPage() {
 
   const handleAddProduct = async (e) => {
     e.preventDefault();
-    if (!newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.imageUrl || !newProduct.category) {
+    // Validasi categoriesInput sebagai pengganti category
+    if (!newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.imageUrl || !newProduct.categoriesInput) {
       showModal('error', "Nama, Harga, Stok, URL Gambar, dan Kategori wajib diisi!");
       return;
     }
 
     try {
+      // Proses categoriesInput menjadi array string
+      const categoriesArray = newProduct.categoriesInput
+        .split(',')
+        .map(cat => cat.trim().toLowerCase())
+        .filter(cat => cat !== ''); // Filter string kosong setelah trim
+
       const productToAdd = {
         ...newProduct,
         price: Number(newProduct.price),
         stock: Number(newProduct.stock),
-        // Rating dan Reviews tidak lagi ditambahkan di sini
-        rating: 0, // Inisialisasi rating default 0 saat produk baru ditambahkan
-        reviews: 0 // Inisialisasi jumlah ulasan default 0
+        categories: categoriesArray, // Simpan sebagai array
+        createdAt: serverTimestamp(), // Tambahkan timestamp saat dibuat
+        lastUpdated: serverTimestamp(), // Tambahkan timestamp update awal
+        rating: 0, // Inisialisasi rating default
+        reviews: 0 // Inisialisasi jumlah ulasan default
       };
+      // Hapus field categoriesInput dari objek yang akan disimpan ke Firestore
+      delete productToAdd.categoriesInput;
 
       const productsCollectionRef = collection(db, 'products');
       await addDoc(productsCollectionRef, productToAdd);
       showModal('success', 'Produk berhasil ditambahkan!');
+      // Reset form
       setNewProduct({
         name: '', price: '', stock: '', imageUrl: '', description: '',
-        weight: '', origin: '', category: '' // Reset form tanpa rating dan reviews
+        weight: '', origin: '', categoriesInput: ''
       });
       setIsAddingProduct(false);
-      fetchProducts();
+      fetchProducts(); // Refresh daftar produk
     } catch (err) {
       console.error("Error adding product:", err);
       showModal('error', "Gagal menambahkan produk. Silakan coba lagi.");
@@ -138,19 +166,28 @@ function ProductManagementPage() {
       description: product.description || '',
       weight: product.weight || '',
       origin: product.origin || '',
-      category: product.category || ''
-      // Rating dan Reviews tidak lagi diisi ke formulir
+      // Konversi array categories menjadi string dipisahkan koma untuk input
+      categoriesInput: (product.categories && Array.isArray(product.categories))
+        ? product.categories.join(', ')
+        : ''
     });
   };
 
   const handleUpdateProduct = async (e) => {
     e.preventDefault();
-    if (!editingProduct.id || !newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.imageUrl || !newProduct.category) {
+    // Validasi categoriesInput sebagai pengganti category
+    if (!editingProduct.id || !newProduct.name || !newProduct.price || !newProduct.stock || !newProduct.imageUrl || !newProduct.categoriesInput) {
       showModal('error', "Nama, Harga, Stok, URL Gambar, dan Kategori wajib diisi!");
       return;
     }
 
     try {
+      // Proses categoriesInput menjadi array string
+      const categoriesArray = newProduct.categoriesInput
+        .split(',')
+        .map(cat => cat.trim().toLowerCase())
+        .filter(cat => cat !== ''); // Filter string kosong setelah trim
+
       const productDocRef = doc(db, 'products', editingProduct.id);
       await updateDoc(productDocRef, {
         name: newProduct.name,
@@ -160,18 +197,18 @@ function ProductManagementPage() {
         description: newProduct.description || '',
         weight: newProduct.weight || '',
         origin: newProduct.origin || '',
-        category: newProduct.category || ''
-        // Rating dan Reviews tidak lagi diperbarui dari formulir
-        // Rating dan reviews akan diperbarui melalui interaksi pelanggan/fungsi terpisah
+        categories: categoriesArray, // Perbarui dengan array categories yang baru
+        lastUpdated: serverTimestamp(), // Perbarui timestamp update
       });
       showModal('success', 'Produk berhasil diperbarui!');
       setEditingProduct(null);
       setIsAddingProduct(false);
+      // Reset form
       setNewProduct({
         name: '', price: '', stock: '', imageUrl: '', description: '',
-        weight: '', origin: '', category: ''
+        weight: '', origin: '', categoriesInput: ''
       });
-      fetchProducts();
+      fetchProducts(); // Refresh daftar produk
     } catch (err) {
       console.error("Error updating product:", err);
       showModal('error', "Gagal memperbarui produk. Silakan coba lagi.");
@@ -192,7 +229,7 @@ function ProductManagementPage() {
       showModal('success', `Produk "${productToDelete.name}" berhasil dihapus!`);
       setShowConfirmDeleteModal(false);
       setProductToDelete(null);
-      fetchProducts();
+      fetchProducts(); // Refresh daftar produk
     } catch (err) {
       console.error("Error deleting product:", err);
       showModal('error', "Gagal menghapus produk. Silakan coba lagi.");
@@ -221,7 +258,10 @@ function ProductManagementPage() {
 
   let filteredAndSortedProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === 'all' || (product.category && product.category.toLowerCase() === selectedCategory.toLowerCase());
+    // Filter berdasarkan array categories
+    const matchesCategory = selectedCategory === 'all' || 
+                            (product.categories && Array.isArray(product.categories) && 
+                             product.categories.includes(selectedCategory.toLowerCase()));
     const matchesStock = stockFilter === 'all' ||
       (stockFilter === 'available' && (product.stock && product.stock > 0)) ||
       (stockFilter === 'out-of-stock' && (product.stock === 0));
@@ -233,13 +273,27 @@ function ProductManagementPage() {
   } else if (sortOption === 'priceDesc') {
     filteredAndSortedProducts.sort((a, b) => (b.price || 0) - (a.price || 0));
   } else if (sortOption === 'nameAsc') {
-    filteredAndSortedProducts.sort((a, b) => a.name.localeCompare(b.name));
+    filteredAndSortedProducts.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   } else if (sortOption === 'nameDesc') {
-    filteredAndSortedProducts.sort((a, b) => b.name.localeCompare(a.name));
+    filteredAndSortedProducts.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
   } else if (sortOption === 'stockAsc') { // Sortir berdasarkan stok
     filteredAndSortedProducts.sort((a, b) => (a.stock || 0) - (b.stock || 0));
   } else if (sortOption === 'stockDesc') { // Sortir berdasarkan stok
     filteredAndSortedProducts.sort((a, b) => (b.stock || 0) - (a.stock || 0));
+  }
+  // Tambahkan sortir berdasarkan createdAt
+  else if (sortOption === 'newest') {
+    filteredAndSortedProducts.sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return dateB - dateA; // Newest first
+    });
+  } else if (sortOption === 'oldest') {
+    filteredAndSortedProducts.sort((a, b) => {
+      const dateA = a.createdAt?.toDate ? a.createdAt.toDate().getTime() : 0;
+      const dateB = b.createdAt?.toDate ? b.createdAt.toDate().getTime() : 0;
+      return dateA - dateB; // Oldest first
+    });
   }
 
 
@@ -263,7 +317,7 @@ function ProductManagementPage() {
           <button
             onClick={fetchProducts}
             className="mt-6 py-2 px-5 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                       bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50"
+                        bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50"
           >
             Coba Lagi
           </button>
@@ -282,7 +336,7 @@ function ProductManagementPage() {
         <button
           onClick={handleGoBack}
           className="py-2 px-5 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#254222] text-[#254222] hover:bg-[#254222] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#254222] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
+                      bg-transparent border-2 border-[#254222] text-[#254222] hover:bg-[#254222] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#254222] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
         >
           <ArrowLeft className="h-5 w-5 mr-2" />
           Kembali ke Dashboard
@@ -291,10 +345,10 @@ function ProductManagementPage() {
           onClick={() => {
             setIsAddingProduct(!isAddingProduct);
             setEditingProduct(null); // Reset editing state
-            setNewProduct({ name: '', price: '', stock: '', imageUrl: '', description: '', weight: '', origin: '', category: '' }); // Reset form
+            setNewProduct({ name: '', price: '', stock: '', imageUrl: '', description: '', weight: '', origin: '', categoriesInput: '' }); // Reset form
           }}
           className="py-2 px-5 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
+                      bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
         >
           {isAddingProduct ? <XCircle className="h-5 w-5 mr-2" /> : <Plus className="h-5 w-5 mr-2" />}
           {isAddingProduct ? 'Tutup Formulir' : 'Tambah Produk Baru'}
@@ -304,7 +358,7 @@ function ProductManagementPage() {
         <button
           onClick={() => setShowMobileFilters(!showMobileFilters)}
           className="lg:hidden py-2 px-5 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                     bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
+                      bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50 flex items-center justify-center w-full sm:w-auto"
         >
           <Filter className="h-5 w-5 mr-2" />
           {showMobileFilters ? 'Sembunyikan Filter' : 'Tampilkan Filter'}
@@ -374,22 +428,22 @@ function ProductManagementPage() {
                 value={newProduct.imageUrl}
                 onChange={handleNewProductChange}
                 className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-[#254222] leading-tight focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
-                placeholder="Mis: https://digimart.biz.id/gambar_produk_saya.jpg"
+                placeholder="Mis: [https://digimart.biz.id/gambar_produk_saya.jpg](https://digimart.biz.id/gambar_produk_saya.jpg)"
                 required
               />
             </div>
             <div className="md:col-span-1">
-              <label htmlFor="category" className="block text-[#254222] text-sm font-bold mb-2 flex items-center">
+              <label htmlFor="categoriesInput" className="block text-[#254222] text-sm font-bold mb-2 flex items-center">
                 <Tag className="mr-2" size={18} /> Kategori Produk <span className="text-red-500 ml-1">*</span>
               </label>
               <input
                 type="text"
-                id="category"
-                name="category"
-                value={newProduct.category}
+                id="categoriesInput"
+                name="categoriesInput"
+                value={newProduct.categoriesInput}
                 onChange={handleNewProductChange}
                 className="shadow-sm appearance-none border rounded-lg w-full py-3 px-4 text-[#254222] leading-tight focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:border-[#99cc66] transition-all duration-300"
-                placeholder="Contoh: Makanan, Minuman, Fashion"
+                placeholder="Contoh: makanan, snack, fashion (pisahkan dengan koma)"
                 required
               />
             </div>
@@ -441,7 +495,7 @@ function ProductManagementPage() {
               <button
                 type="submit"
                 className="w-full py-3 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                           bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50"
+                              bg-transparent border-2 border-[#99cc66] text-[#99cc66] hover:bg-[#99cc66] hover:text-[#254222] focus:outline-none focus:ring-2 focus:ring-[#99cc66] focus:ring-opacity-50"
               >
                 {editingProduct ? 'Perbarui Produk' : 'Tambah Produk'}
               </button>
@@ -451,10 +505,10 @@ function ProductManagementPage() {
                   onClick={() => {
                     setEditingProduct(null);
                     setIsAddingProduct(false);
-                    setNewProduct({ name: '', price: '', stock: '', imageUrl: '', description: '', weight: '', origin: '', category: '' });
+                    setNewProduct({ name: '', price: '', stock: '', imageUrl: '', description: '', weight: '', origin: '', categoriesInput: '' });
                   }}
                   className="w-full py-3 px-6 rounded-lg text-lg font-semibold transition-colors duration-300 transform active:scale-95
-                             bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50"
+                                bg-transparent border-2 border-[#6699cc] text-[#6699cc] hover:bg-[#6699cc] hover:text-[#FFFDF5] focus:outline-none focus:ring-2 focus:ring-[#6699cc] focus:ring-opacity-50"
                 >
                   Batalkan Edit
                 </button>
@@ -491,7 +545,7 @@ function ProductManagementPage() {
           >
             <option value="all">Semua Kategori</option>
             {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
+              <option key={category} value={category}>{category.charAt(0).toUpperCase() + category.slice(1)}</option>
             ))}
           </select>
 
@@ -519,6 +573,8 @@ function ProductManagementPage() {
             <option value="priceDesc">Harga (Termahal)</option>
             <option value="stockAsc">Stok (Terendah)</option>
             <option value="stockDesc">Stok (Tertinggi)</option>
+            <option value="newest">Terbaru</option> {/* Opsi Sortir Terbaru */}
+            <option value="oldest">Terlama</option> {/* Opsi Sortir Terlama */}
           </select>
         </div>
       </div>
@@ -566,10 +622,13 @@ function ProductManagementPage() {
                       src={product.imageUrl}
                       alt={product.name}
                       className="w-16 h-16 object-cover rounded-md shadow-sm"
-                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/64x64/cccccc/333333?text=N/A'; }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = '[https://placehold.co/64x64/cccccc/333333?text=N/A](https://placehold.co/64x64/cccccc/333333?text=N/A)'; }}
                     />
                   </td>
-                  <td className="py-4 px-6 whitespace-nowrap text-sm text-[#254222]">{product.category || '-'}</td>
+                  {/* Tampilkan kategori sebagai string dipisahkan koma */}
+                  <td className="py-4 px-6 whitespace-nowrap text-sm text-[#254222]">
+                    {product.categories && Array.isArray(product.categories) ? product.categories.join(', ') : '-'}
+                  </td>
                   <td className="py-4 px-6 max-w-xs truncate text-sm text-[#254222]" title={product.description}>
                     {product.description || '-'}
                   </td>
@@ -612,7 +671,7 @@ function ProductManagementPage() {
             <button
               onClick={() => setShowSuccessModal(false)}
               className="py-2 px-5 rounded-lg text-base font-semibold transition-colors duration-300
-                         bg-[#99cc66] text-[#254222] hover:bg-[#7aaf4f] focus:outline-none focus:ring-2 focus:ring-[#99cc66]"
+                          bg-[#99cc66] text-[#254222] hover:bg-[#7aaf4f] focus:outline-none focus:ring-2 focus:ring-[#99cc66]"
             >
               Oke
             </button>
@@ -630,7 +689,7 @@ function ProductManagementPage() {
             <button
               onClick={() => setShowErrorModal(false)}
               className="py-2 px-5 rounded-lg text-base font-semibold transition-colors duration-300
-                         bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                          bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
             >
               Tutup
             </button>
@@ -652,14 +711,14 @@ function ProductManagementPage() {
               <button
                 onClick={() => setShowConfirmDeleteModal(false)}
                 className="py-2 px-5 rounded-lg text-base font-semibold transition-colors duration-300
-                           bg-gray-300 text-gray-800 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
+                            bg-gray-300 text-gray-800 hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300"
               >
                 Batal
               </button>
               <button
                 onClick={handleDelete}
                 className="py-2 px-5 rounded-lg text-base font-semibold transition-colors duration-300
-                           bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                            bg-red-600 text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 Hapus
               </button>
@@ -667,7 +726,7 @@ function ProductManagementPage() {
           </div>
         </div>
       )}
-    </div>
+    </div> // Ini adalah tag penutup yang penting
   );
 }
 

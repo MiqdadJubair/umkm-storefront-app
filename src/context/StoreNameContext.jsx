@@ -1,7 +1,7 @@
 // src/context/StoreNameContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/firebase'; // Ensure this path is correct for your project
+import { db } from '../firebase/firebase.js'; // Ensure this path is correct for your project
   
 // Create the context
 const StoreNameContext = createContext(null);
@@ -28,11 +28,11 @@ export function StoreNameProvider({ children }) {
         const storeDocSnap = await getDoc(storeDocRef);
 
         if (storeDocSnap.exists()) {
-          const fetchedName = storeDocSnap.data().name;
+          const fetchedName = storeDocSnap.data().storeName;
           if (fetchedName && typeof fetchedName === 'string' && fetchedName.trim() !== '') {
             setStoreName(fetchedName.trim());
           } else {
-            console.warn("Firestore document 'general' found, but 'name' field is empty or invalid. Using default 'UMKM'.");
+            console.warn("Firestore document 'general' found, but 'storeName' field is empty or invalid. Using default 'UMKM'.");
           }
         } else {
           console.warn("Firestore document 'general' not found in 'storeSettings' collection. Using default 'UMKM'.");

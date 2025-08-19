@@ -1,6 +1,7 @@
 // src/pages/AdminDashboardPage.jsx
+import usePageTitle from '../hooks/usePageTitle.js';
 import React, { useState, useEffect } from 'react';
-import { auth, db } from '../firebase/firebase'; // Pastikan `db` juga diimpor dari firebase.js
+import { auth, db } from '../firebase/firebase.js'; // Pastikan `db` juga diimpor dari firebase.js
 import { signOut } from 'firebase/auth';
 import { useNavigate, Link } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
@@ -18,6 +19,8 @@ function AdminDashboardPage() {
   const [outOfStockProducts, setOutOfStockProducts] = useState(0);
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false); // State untuk modal konfirmasi logout
+  // NEW: Panggil usePageTitle
+  usePageTitle("Dashboard Admin");
 
   useEffect(() => {
     const fetchDashboardData = async () => {

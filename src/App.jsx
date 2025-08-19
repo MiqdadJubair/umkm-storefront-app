@@ -6,7 +6,7 @@ import './index.css';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 import { CartProvider } from './context/CartContext';
-import { StoreNameProvider } from './context/StoreNameContext.jsx'; // NEW: Import StoreNameProvider
+import { StoreNameProvider } from './context/StoreNameContext.jsx'; // PASTIKAN PATH INI BENAR
 
 // Mengimpor semua halaman
 import HomePage from './pages/HomePage';
@@ -25,20 +25,20 @@ import AdminSettingsPage from './pages/AdminSettingsPage';
 const pageVariants = {
   initial: {
     opacity: 0,
-    x: "-100vw" // Mulai dari luar kiri
+    x: "-100vw"
   },
   animate: {
     opacity: 1,
     x: 0,
     transition: {
-      type: "tween", // Jenis transisi
-      ease: "easeInOut", // Fungsi timing
-      duration: 0.5 // Durasi 0.5 detik
+      type: "tween",
+      ease: "easeInOut",
+      duration: 0.5
     }
   },
   exit: {
     opacity: 0,
-    x: "100vw", // Keluar ke kanan
+    x: "100vw",
     transition: {
       type: "tween",
       ease: "easeInOut",
@@ -51,7 +51,7 @@ function App() {
   const location = useLocation();
 
   return (
-    // NEW: Wrap both CartProvider and the main app structure with StoreNameProvider
+    // NEW: Membungkus seluruh aplikasi dengan StoreNameProvider
     <StoreNameProvider>
       <CartProvider>
         <div className="min-h-screen flex flex-col bg-gray-100 text-gray-800 font-sans">

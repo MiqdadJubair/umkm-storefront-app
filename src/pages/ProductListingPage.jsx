@@ -1,4 +1,5 @@
 // src/pages/ProductListingPage.jsx
+import usePageTitle from '../hooks/usePageTitle.js';
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/firebase.js'; // Pastikan path ini benar!
@@ -10,6 +11,8 @@ function ProductListingPage() {
   const [selectedCategory, setSelectedCategory] = useState('all'); // State untuk kategori aktif
   const [availableCategories, setAvailableCategories] = useState([]); // State untuk kategori yang tersedia dari Firestore
   const [error, setError] = useState(null);
+  // NEW: Panggil usePageTitle
+  usePageTitle("Daftar Produk");
 
   // useEffect pertama: Mengambil daftar kategori unik dari semua produk di Firestore
   // Ini memastikan tab kategori yang ditampilkan dinamis berdasarkan data yang ada.
@@ -22,8 +25,16 @@ function ProductListingPage() {
 
         querySnapshot.docs.forEach(doc => {
           const productData = doc.data();
-          if (productData.category && typeof productData.category === 'string') {
-            categoriesSet.add(productData.category.toLowerCase());
+          // NEW: Ambil array 'categories' dari produk
+          // Pastikan itu array, lalu tambahkan setiap kategori ke set
+          if (productData.categories && Array.isArray(productData.categories)) {
+            productData.categories.forEach(cat => {
+              categoriesSet.add(String(cat).toLowerCase()); // Pastikan kategori di-lowercase
+            });
+          } else {
+            // Fallback jika ada produk lama tanpa field 'categories' atau bukan array
+            // Atau jika Anda ingin secara eksplisit menambahkan "uncategorized" sebagai opsi
+            // categoriesSet.add('uncategorized');
           }
         });
         setAvailableCategories(Array.from(categoriesSet));
@@ -45,14 +56,17 @@ function ProductListingPage() {
 
         // Jika kategori bukan 'all', tambahkan filter where
         if (selectedCategory !== 'all') {
-          // Query Firestore untuk memfilter berdasarkan bidang 'category'
-          productsQuery = query(productsQuery, where('category', '==', selectedCategory));
+          // NEW: Query Firestore untuk memfilter berdasarkan array 'categories'
+          // Menggunakan 'array-contains' untuk mencari produk yang array categories-nya mengandung selectedCategory
+          productsQuery = query(productsQuery, where('categories', 'array-contains', selectedCategory));
         }
 
         const querySnapshot = await getDocs(productsQuery);
         const productsData = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          ...doc.data(),
+          // Pastikan product.categories yang disimpan di state juga array
+          categories: (doc.data().categories && Array.isArray(doc.data().categories)) ? doc.data().categories.map(cat => String(cat).toLowerCase()) : ['uncategorized'],
         }));
         setProducts(productsData);
       } catch (err) {

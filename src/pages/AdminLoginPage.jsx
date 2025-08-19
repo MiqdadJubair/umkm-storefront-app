@@ -3,12 +3,15 @@ import React, { useState } from 'react';
 import { auth } from '../firebase/firebase'; // Impor instance auth dari firebase.js
 import { signInWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserSessionPersistence } from 'firebase/auth'; // Impor fungsi login dan reset password, serta setPersistence
 import { useNavigate } from 'react-router-dom'; // Untuk navigasi setelah login
+import usePageTitle from '../hooks/usePageTitle.js';
 
 function AdminLoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState(''); // State untuk pesan error login
   const navigate = useNavigate(); // Inisialisasi hook useNavigate
+  // NEW: Panggil usePageTitle
+  usePageTitle("Login");
 
   // Fungsi untuk menangani reset password
   const handlePasswordReset = async () => {
